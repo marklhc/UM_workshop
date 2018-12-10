@@ -1,0 +1,357 @@
+---
+title: "Running Basic Multilevel Models in R with `lme4`"
+output:
+  html_notebook:
+    toc: yes
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = ">#")
+```
+
+In this workshop we will mainly run some basic multilevel models in R, and will
+not go through many of the background knowledge for MLM. Please check out my
+slides: http://marklai.netlify.com/slides/intro_mlm.html or some introductory
+books like [Hox et al.
+(2017)](https://www.amazon.com/Multilevel-Analysis-Applications-Quantitative-Methodology-ebook/dp/B075MC7XDY/ref=sr_1_1?ie=UTF8&qid=1543997640&sr=8-1&keywords=hox+multilevel+analysis)
+or [Snijders & Bosker
+(2012)](https://www.amazon.com/Multilevel-Analysis-Introduction-Advanced-Modeling/dp/184920201X/ref=sr_1_3?ie=UTF8&qid=1543997665&sr=8-3&keywords=hox+multilevel+analysis).
+
+In R, there are many packages for multilevel modeling, two of the most common
+ones are the `lme4` package and the `nlme` package. In this note I will show how
+to run different basic multilevel models using the `lme4` package, which is
+newer. However, some of the models, like unstructured covariance structure, will
+need the `nlme` package or other packages (like the `MCMCglmm` or `brms`
+packages with Bayesian methods).
+
+# 1. Importing Data Into R
+
+We'll import the data in .sav format. 
+
+```{r import_sav, message=FALSE}
+# install.packages("tidyverse")  # if you haven't installed the `tidyverse` package
+library(tidyverse)
+theme_set(theme_bw())  # Use a different theme for plotting with ggplot2
+library(haven)
+# Read in the data (pay attention to the directory)
+hsball <- read_sav("../data/hsball.sav")
+hsball  # print the first 10 rows
+```
+
+# 2. Run the Random Intercept Model
+
+## Model Equation
+
+Lv-1:
+
+$$\texttt{mathach}_{ij} = \beta_{0j} + e_{ij}$$
+where $\beta_{0j}$ is the population mean math achievement of the $j$th school,
+and $e_{ij}$ is the level-1 random error term. 
+
+Lv-2:
+
+$$\beta_{0j} = \gamma_{00} + u_{0j}$$
+where $\gamma_{00}$ is the grand mean, and $u_{0j}$ is the deviation of the 
+mean of the $j$th school from the grand mean. 
+
+## Running in R
+
+First load the package:
+
+```{r load_lme4, message=FALSE}
+# install.packages("lme4")  # if you haven't installed the `lme4` package
+# Load the `lme4` library to run MLM
+library(lme4)
+```
+
+Then specify the model, following the format of 
+`outcome ~ fixed + (random | cluster ID)`. For our data, 
+
++ the outcome variable is `mathach`, 
++ the fixed part is only the grand mean and we can say `1`, 
++ the random part is again just the mean/intercept, so `1`, and 
++ the cluster ID is `id`.
+
+```{r ran_int}
+ran_int <- lmer(mathach ~ (1 | id), data = hsball)
+```
+
+You can summarize the results using
+
+```{r summary_ran_int}
+summary(ran_int)
+```
+
+Also, you can summarize the results with the `texreg` package:
+
+```{r}
+texreg::screenreg(ran_int)
+```
+
+
+### Plotting the random effects
+
+<!-- You can easily plot the estimated school means (also called BLUP, best linear -->
+<!-- unbiased predictor, or the empirical Bayes estimates, which are different from -->
+<!-- the mean of the sample observations for a particular school) using the `sjPlot` -->
+<!-- package: -->
+
+<!-- ```{r sjp_ran_int} -->
+<!-- # install.packages("sjPlot")  # if you haven't installed the `sjPlot` package -->
+<!-- library(sjPlot) -->
+<!-- sjp.lmer(ran_int, facet.grid = FALSE, sort = "sort.all") -->
+<!-- ``` -->
+
+You can easily plot the estimated school means (also called BLUP, best linear
+unbiased predictor, or the empirical Bayes estimates, which are different from
+the mean of the sample observations for a particular school) using the `lattice`
+package:
+
+```{r lattice_ran_int, fig.width=4, fig.height=18, out.height='10in'}
+library(lattice)
+dotplot(ranef(ran_int, condVar = TRUE))
+```
+
+# 3. Model With a Lv-2 predictor
+
+We have one more predictor, `meanses`, in the fixed part. 
+
+## Model Equation
+
+Lv-1:
+
+$$\texttt{mathach}_{ij} = \beta_{0j} + e_{ij}$$
+
+Lv-2:
+
+$$\beta_{0j} = \gamma_{00} + \gamma_{01} \texttt{meanses}_j + u_{0j}$$
+where $\gamma_{00}$ is the grand _intercept_, $\gamma_{10}$ is the regression
+coefficient of `meanses` that represents the expected difference in school mean
+achievement between two schools with one unit difference in `meanses`, and and
+$u_{0j}$ is the deviation of the mean of the $j$th school from the grand mean.
+
+## Running in R
+
+We can specify the model as:
+
+```{r m_lv2}
+m_lv2 <- lmer(mathach ~ meanses + (1 | id), data = hsball)
+```
+
+Alternatively, you can build from the random intercept model using the 
+following command:
+
+```{r m_lv2_alternative, eval=FALSE}
+m_lv2 <- update(m_lv2, . ~ . + meanses)
+```
+
+You can summarize the results using
+
+```{r summary_m_lv2}
+summary(m_lv2)
+```
+
+### Obtaining Likelihood-Based Intervals
+
+In `lme4`, the recommended way to obtain confidence intervals (CIs) is to use
+the `confint` function, which gives likelihood-based intervals (which are more 
+accurate than Wald intervals). As an example:
+
+```{r ci_m_lv2}
+# `parm = "beta_"` requests confidence intervals only for the fixed effects
+confint(m_lv2, parm = "beta_", level = .95)
+```
+
+The 95% confidence intervals (CIs) above showed the uncertainty associated with
+the estimates. Also, as the 95% CIs for `meanses` do not contain zero, there is
+evidence for the positive association of SES and `mathach` at the school level.
+
+### Comparing to OLS regression
+
+```{r}
+m_lm <- lm(mathach ~ meanses, data = hsball)
+texreg::screenreg(list(m_lv2, m_lm))
+```
+
+
+# 4. Examing Contextual Effects
+
+With a level-1 predictor like `ses`, which has both student-level and 
+school-level variance, we can include both the level-1 variable and the school
+mean variable as predictors. When the level-1 predictor is present, the 
+coefficient for the group mean variable becomes the _contextual_effect. 
+
+## Model Equation
+
+Lv-1:
+
+$$\texttt{mathach}_{ij} = \beta_{0j} + \beta_{1j} \texttt{ses}_{ij} + e_{ij}$$
+
+Lv-2:
+
+\begin{align*}
+  \beta_{0j} & = \gamma_{00} + \gamma_{01} \texttt{meanses}_j + u_{0j}  \\
+  \beta_{1j} & = \gamma_{10}
+\end{align*}
+where  
+- $\gamma_{10}$ = regression coefficient of student-level `ses` 
+representing the expected difference in student achievement between two students
+_in the same school_ with one unit difference in `ses`,  
+- $\gamma_{01}$ = contextual effect, which is the expected difference in 
+student achievement between two students _with the same `ses`_ but from two 
+schools with one unit difference in `meanses`. 
+
+## Running in R
+
+We can specify the model as:
+
+```{r contextual}
+contextual <- lmer(mathach ~ meanses + ses + (1 | id), data = hsball)
+```
+
+Alternatively, you can also use the `update` function.
+
+You can summarize the results using
+
+```{r summary_contextual}
+summary(contextual)
+```
+
+# 5. Run the Random-Coefficients Model
+
+## Model Equation
+
+Lv-1:
+
+$$\texttt{mathach}_{ij} = \beta_{0j} + \beta_{1j} \texttt{ses}_{ij} + e_{ij}$$
+
+Lv-2:
+
+\begin{align*}
+  \beta_{0j} & = \gamma_{00} + \gamma_{01} \texttt{meanses}_j + u_{0j}  \\
+  \beta_{1j} & = \gamma_{10} + u_{1j}  
+\end{align*}
+The additional term is $u_{1j}$, which represents the deviation of the slope of
+school $j$ from the average slope (i.e., $\gamma_{10}$). 
+
+## Running in R
+
+We have to put `ses` in the random part:
+
+```{r ran_slp}
+ran_slp <- lmer(mathach ~ meanses + ses + (ses | id), data = hsball)
+```
+
+Alternatively, you can also use the `update` function.
+
+You can summarize the results using
+
+```{r summary_ran_slp}
+summary(ran_slp)
+```
+
+## Testing Variance Components
+
+In R, it's easy compare two nested models (e.g., the decomposing effect model 
+and the random-coefficients model) with the likelihood ratio test. All you 
+should do is to use the `anova` function, and then __divide the _p_ value by 
+two__. Note, however, that `lme4` will refit the models using _maximum
+likelihood (ML)_, instead of _restricted maximum likelihood_ (_REML_; the
+default), so the test results may be slightly different from computing the test
+statistic using HLM or SPSS by hand.
+
+As an example, 
+
+```{r compare_hidden, include=FALSE}
+p_lmer <- anova(ran_slp, decompose)$`Pr(>Chisq)`[2]
+```
+
+```{r compare_decompose_ran_slp}
+# With `lme4`
+anova(ran_slp, decompose)
+```
+
+The _p_ value is `r p_lmer` / 2 = `r p_lmer / 2` using `lme4`. 
+
+## Plotting Random Slopes
+
+```{r}
+# Get the predicted values for plotting from `lme4`
+predict_ran_slp <- hsball %>% select(id, ses) %>% mutate(fit = predict(ran_slp))
+
+ggplot(data = predict_ran_slp, aes(x = ses, y = fit, color = factor(id))) +
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(y = "Predicted mathach") + 
+  guides(color = FALSE)
+```
+
+# 6. Analyzing Cross-Level Interactions
+
+`sector` is added to the level-2 intercept and slope equations
+
+## Model Equation
+
+Lv-1:
+
+$$\texttt{mathach}_{ij} = \beta_{0j} + \beta_{1j} \texttt{ses}_{ij} + e_{ij}$$
+
+Lv-2:
+
+\begin{align*}
+  \beta_{0j} & = \gamma_{00} + \gamma_{01} \texttt{meanses}_j + 
+                 \gamma_{02} \texttt{sector}_j + u_{0j}  \\
+  \beta_{1j} & = \gamma_{10} + \gamma_{11} \texttt{meanses}_j + 
+                 \gamma_{12} \texttt{sector}_j + u_{1j}  
+\end{align*}
+where  
+- $\gamma_{02}$ = regression coefficient of school-level `sector` variable
+representing the expected difference in achievement between two students with 
+the same SES level and from two schools with the same school-level SES, but one
+is a catholic school and the other a private school. 
+- $\gamma_{12}$ = cross-level interaction coefficient of the expected _slope_
+difference between a catholic and a private school with the same school-level
+SES. 
+
+## Running in R
+
+We have to put the `sector * ses` interaction to the fixed part:
+
+```{r crlv_int}
+crlv_int <- lmer(mathach ~ meanses + sector * ses + (ses | id), 
+                 data = hsball)
+```
+
+Alternatively, you can also use the `update` function.
+
+```{r crlv_int_alternative, eval=FALSE}
+crlv_int <- update(ran_slp, . ~ . + sector * ses)
+```
+
+You can summarize the results using
+
+```{r summary_crlv_int}
+summary(crlv_int)
+```
+
+## Plotting the Interactions
+
+```{r}
+# Get the predicted values for plotting from `lme4`
+predict_crlv_int <- hsball %>% select(id, ses, sector) %>%  # include `sector`
+  mutate(fit = predict(crlv_int))
+
+ggplot(data = predict_crlv_int, 
+       aes(x = ses, y = fit, group = factor(id), 
+           color = factor(sector))) +   # use `sector` for coloring lines
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(y = "Predicted mathach")
+```
+
+# Summaizing All Analyses in a Table
+
+This can be done with the `texreg` package:
+
+```{r}
+texreg::screenreg(list(ran_int, m_lv2, contextual, ran_slp, crlv_int))
+```
