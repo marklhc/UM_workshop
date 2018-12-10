@@ -1,0 +1,102 @@
+---
+title: "Bayesian Multilevel Models in R with `brms`"
+output:
+  html_notebook:
+    toc: yes
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = ">#")
+```
+
+In this note I'll replicate the models I demonstrated in the workshop with
+Bayesian estimation and the `brms` package. The `brms` package depends on
+installation of
+[`rstan`](https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started), which
+currently does not work on RStudio Cloud. If you're using your own computer,
+please go to https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started to
+have `rstan` installed first, and then install `brms`.
+
+# 1. Importing Data Into R
+
+We'll import the data in .sav format. 
+
+```{r import_sav, message=FALSE}
+# install.packages("tidyverse")  # if you haven't installed the `tidyverse` package
+library(tidyverse)
+theme_set(theme_bw())  # Use a different theme for plotting with ggplot2
+library(haven)
+# Read in the data (pay attention to the directory)
+hsball <- read_sav("../data/hsball.sav")
+hsball  # print the first 10 rows
+```
+
+# 2. Random Intercept Model
+
+First load the package:
+
+```{r load_lme4, message=FALSE}
+# install.packages("brms")  # if you haven't installed the `brms` package, which
+# requires `rstan` to be installed first
+# Load the `brms` library to run MLM
+library(brms)
+options(mc.cores = 2L)  # use two cores for parallel processing
+```
+
+```{r ran_int, results='hide'}
+# Simply change `lmer()` to `brm()` (which uses the default non-informative
+# priors); I change the # of chains and iterations for shorter run time. 
+# It takes about a minute for compilation, and then about 
+ran_int <- brm(mathach ~ (1 | id), data = hsball, chains = 2, iter = 1000)
+```
+
+You can summarize the results using
+
+```{r summary_ran_int}
+summary(ran_int)
+```
+
+# 3. Model With a Lv-2 predictor
+
+```{r m_lv2, results='hide'}
+m_lv2 <- brm(mathach ~ meanses + (1 | id), data = hsball, chains = 2, 
+             iter = 1000)
+```
+
+```{r summary_m_lv2}
+summary(m_lv2)
+```
+
+# 4. Examing Contextual Effects
+
+```{r contextual, results='hide'}
+contextual <- brm(mathach ~ meanses + ses + (1 | id), data = hsball, 
+                  chains = 2, iter = 1000)
+```
+
+```{r summary_contextual}
+summary(contextual)
+```
+
+# 5. Run the Random-Coefficients Model
+
+```{r ran_slp, results='hide'}
+ran_slp <- brm(mathach ~ meanses + ses + (ses | id), data = hsball, 
+                  chains = 2, iter = 1000)
+```
+
+```{r summary_ran_slp}
+summary(ran_slp)
+```
+
+# 6. Analyzing Cross-Level Interactions
+
+```{r crlv_int, results='hide'}
+crlv_int <- brm(mathach ~ meanses + sector * ses + (ses | id), 
+                 data = hsball, chains = 2, iter = 1000)
+```
+
+```{r summary_crlv_int}
+summary(crlv_int)
+```
