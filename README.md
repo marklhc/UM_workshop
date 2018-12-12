@@ -10,7 +10,7 @@ Materials also on RStudio Cloud: [https://rstudio.cloud/project/154625](https://
 
 - Tell us a little bit about yourself, and the data you're dealing with
 
-### Very short intro to Multilevel Modeling (MLM)
+### Very short intro to multilevel modeling (MLM)
 
 Also called:
 
@@ -59,7 +59,7 @@ and click "Save a Permanent Copy" on top right.
         * `hist(y)`
 - Different panes
 
-### Importing Data
+### Importing data
 
 ## Session 2 (10:15 - 11:00)
 
@@ -79,28 +79,28 @@ and click "Save a Permanent Copy" on top right.
 
 ## Session 3 (11:10 - 12:00)
 
-### Model With a lv-1 predictor
+### Model with a lv-1 predictor
 
-### Contextual Effects
+### Contextual effects
 
-### Random Slope (Random Coefficient Model)
+### Random slope (random coefficient model)
 - Visualization
 
-### Cross-Level Interactions
+### Cross-level interactions
 - Interpretations
 - Plotting simple slopes [http://www.quantpsy.org/interact/hlm2.htm](http://www.quantpsy.org/interact/hlm2.htm)
 
-### Model Diagnostics
+### Model diagnostics
 
 ## Session 4 (12:00 - 12:30)
 - Q&A
 
-### Bonus Topics
+### Bonus topics
 - R markdown
 - Reporting
     + Ferron, J. M., Hogarty, K. Y., Dedrick, R. F., Hess, M. R., Niles, J. D., & Kromrey, J. D. (2008). Reporting results from multilevel analyses. In A. A. O’Connell, & D. B. McCoach (Eds.), Multilevel Modeling of Educational Data (pp. 391--426). Charlotte, NC: Information Age.
     + [Hox et al. (2018)](https://www.crcpress.com/Multilevel-Analysis-Techniques-and-Applications-Third-Edition/Hox-Moerbeek-Schoot/p/book/9781138121362) Appendix A
     + [Jackson (2010, Rehabilitation Psychology)](http://psycnet.apa.org/fulltext/2010-17262-008.html)
-- Effect size ($R^2$ with the `MuMIn` package)
+- Effect size (_R_^2^ with the `MuMIn` package)
 - Bayesian MLM
 
