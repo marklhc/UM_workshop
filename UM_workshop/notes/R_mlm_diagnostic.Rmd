@@ -39,7 +39,7 @@ crlv_int <- lmer(mathach ~ meanses + sector * ses + (ses | id),
 
 # Diagnostic Plots
 
-## 1. Residuals (Lv 1.) vs. Every Predictor, Fitted Values
+## Residuals (Lv 1.) vs. Every Predictor, Fitted Values
 
 For: linearity, specification, outliers, homoscedasticity
 
