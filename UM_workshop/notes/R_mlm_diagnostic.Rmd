@@ -14,8 +14,6 @@ In R, there are many quite a few diagnostic tools for MLM, although they are
 not necessarily straightforward to use. In this note I will show some basic 
 tools. 
 
-# Running MLM
-
 ## Importing Data Into R
 
 We'll import the data in .sav format. 
@@ -41,7 +39,7 @@ crlv_int <- lmer(mathach ~ meanses + sector * ses + (ses | id),
 
 # Diagnostic Plots
 
-## 1. Residuals (Lv 1.) vs. Fitted Values
+## 1. Residuals (Lv 1.) vs. Every Predictor, Fitted Values
 
 For: linearity, specification, outliers, homoscedasticity
 
@@ -53,58 +51,53 @@ shape
 resid_df <- mutate(hsball, 
                    .std_resid = resid(crlv_int, scaled = TRUE), 
                    .fitted = fitted(crlv_int))
-ggplot(resid_df, 
-       aes(x = .fitted, y = .std_resid)) + 
-  geom_point() +  # show the points
-  geom_smooth()  # add a smoother
-```
-
-The plot shows no clear patterns and there does not appear to be outliers. 
-The residual variance also seems preety constant across different levels of 
-the fitted values. *One thing to note, however, is that the residuals appear to
-be bounded, which can indicate a ceiling and/or a floor effect. This certainly
-is due to our outcome variable being bounded with a maximum of 25. 
-
-## 2. Residuals (Lv 1.) vs. Each Predictor
-
-For: linearity, specification, outliers, homoscedasticity
-
-You want to see a random blob with no clear patterns, such as a curvillinear
-shape
-
-### a. For `ses`
-
-```{r resid_vs_ses}
+# Residual vs. meanses
 p1 <- ggplot(resid_df, 
-       aes(x = ses, y = .std_resid)) + 
-  geom_point() +  # show the points
-  geom_smooth()  # add a smoother
-```
-
-### b. For `meanses`
-
-```{r resid_vs_meanses}
-p2 <- ggplot(resid_df, 
        aes(x = meanses, y = .std_resid)) + 
-  geom_point() +  # show the points
-  geom_smooth()  # add a smoother
-```
-
-### c. For `sector`
-
-For categorical predictors, you want to see that the variance and distribution
-is similar across different levels of the predictor. 
-
-```{r resid_vs_sector}
+  geom_point(size = 0.5, alpha = 0.5) +  # show the points
+  geom_smooth(se = FALSE) +  # add a smoother
+  labs(y = "Standardized residuals")
+# Residual vs. ses
+p2 <- ggplot(resid_df, 
+       aes(x = ses, y = .std_resid)) + 
+  geom_point(size = 0.5, alpha = 0.5) +  # show the points
+  geom_smooth(se = FALSE) +  # add a smoother
+  labs(y = "Standardized residuals")
+# Residual vs. sector
 p3 <- ggplot(resid_df, 
        aes(x = factor(sector),  # factor() is used for categorical predictor
            y = .std_resid)) + 
-  # use `geom_violin()` with categorical predictor
-  geom_violin()
-gridExtra::grid.arrange(p1, p2, p3, nrow = 2L)
+  geom_boxplot() +  # use boxplot with categorical predictor
+  labs(y = "Standardized residuals")
+# Residual vs. fitted
+p4 <- ggplot(resid_df, 
+       aes(x = .fitted, y = .std_resid)) + 
+  geom_point(size = 0.5, alpha = 0.5) +  # show the points
+  geom_smooth(se = FALSE) +  # add a smoother
+  labs(y = "Standardized residuals", x = "Fitted values")
+gridExtra::grid.arrange(p1, p2, p3, p4, nrow = 2L)
 ```
 
-The plots did not suggest any major issues with the linearity or homogeneity. 
+Linearity: The plots show no major violations of the linearity assumption, as 
+the trend lines do not suggest unmodelled nonlinear relationships. 
+
+Specification: Correct specification is not easy to assess. It partly depends on
+whether any nonlinear relationships or interaction effects are omitted. From the
+plots, the residuals do not appear to be related to the predictors. *One thing
+to note, however, is that the residuals appear to be bounded, which can indicate
+a ceiling and/or a floor effect. This certainly is due to our outcome variable
+being bounded with a maximum of 25. A model that captures the boundedness 
+(e.g., truncated normal) probably fit the data better. 
+
+Outliers: An outlier is one that lies outside the majority of the data. There 
+was one student who had very low `ses` and one with very high `ses`. We should
+make sure those cases are reasonably values. Also we want to check whether there
+are cases with extremely high standardized residuals. 
+In this example there are some cases with residuals $> 3$ or $< -3$, but they
+don't look outrageously bad. 
+
+Heteroscedasticity: The residual variances appear pretty constant across
+different levels of the fitted values and predictor values.
 
 ## Q-Q Plot for Lv-1 Residuals
 
@@ -147,7 +140,7 @@ Normality does not appear to be an issue at level 2.
 
 For: multicollinearity
 
-```{r vif_model}
+```{r vif_model, message=FALSE}
 library(car)
 car::vif(crlv_int)
 ```
@@ -163,10 +156,10 @@ To examine whether some cases gives disproportionately strong influence on the
 results, we can look at influence index plot and dfbeta
 
 ```{r influence_plots, fig.height=10, fig.width=6}
-inf_crlv_int <- influence(crlv_int, "id")  # get influence statistics
+inf_crlv_int <- influence(crlv_int, "id")  # get cluster-level influence statistics
 car::infIndexPlot(inf_crlv_int)
 ```
 
-If you need some cutoffs, the cutoff for dfbeta is $2 / sqrt{n}$, which would
+If you need some cutoffs, the cutoff for dfbeta is $2 / \sqrt{n}$, which would
 be `r 2 / sqrt(160)` in our example; cutoff for Cook's distance is 
 $4 / (n - 2)$, which would be `r 4 / (160 - 2)` in our example. 
